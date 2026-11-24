@@ -1,0 +1,66 @@
+plugins {
+    id "java"
+    id "edu.wpi.first.GradleRIO" version "2026.2.1"
+}
+
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
+
+def ROBOT_MAIN_CLASS = "frc.robot.Main"
+
+// Configurações da WPILib
+wpi.java.debugJni = false
+def includeDesktopSupport = true
+
+// Definição das dependências antes do bloco de deploy
+dependencies {
+    implementation wpi.java.deps.wpilib()
+    implementation wpi.java.vendor.java()
+    
+    // Esta linha abaixo força o download da biblioteca de comandos:
+    implementation "edu.wpi.first.wpilibNewCommands:wpilibNewCommands-java:2025.1.1"
+
+    annotationProcessor wpi.java.deps.wpilibAnnotations()
+
+    nativeDebug wpi.java.deps.wpilibJniDebug(wpi.platforms.desktop)
+    nativeRelease wpi.java.deps.wpilibJniRelease(wpi.platforms.desktop)
+    simulationDebug wpi.sim.enableDebug()
+    simulationRelease wpi.sim.enableRelease()
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Bloco de Deploy manual para evitar o erro de Null
+deploy {
+    targets {
+        roborio(getTargetTypeClass('RoboRIO')) {
+            team = 10295
+            artifacts {
+                frcJava(getArtifactTypeClass('FRCJavaArtifact')) {
+                }
+            }
+        }
+    }
+}
+
+// Configuração do JAR
+jar {
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    manifest edu.wpi.first.gradlerio.GradleRIOPlugin.javaManifest(ROBOT_MAIN_CLASS)
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+// Vinculação final
+def deployArtifact = deploy.targets.roborio.artifacts.frcJava
+deployArtifact.jarTask = jar
+
+wpi.java.configureExecutableTasks(jar)
+wpi.java.configureTestTasks(test)
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add '-XDstringConcat=inline'
+}
+
+wpi.sim.addGui().defaultEnabled = true
+wpi.sim.addDriverstation()
